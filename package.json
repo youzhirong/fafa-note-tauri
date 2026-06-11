@@ -1,7 +1,7 @@
 {
   "name": "fafa-note-tauri",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "跨平台笔记管理软件（Web / 桌面 / 移动），基于 Vue3 + PrimeVue + Tauri2",
   "scripts": {
