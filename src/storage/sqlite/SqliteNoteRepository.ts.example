@@ -1,0 +1,35 @@
+/**
+ * 【模板 / 示例文件，后缀 .example 不会被编译】
+ *
+ * 这是「后期把桌面端存储升级为 SQLite」的骨架示例。
+ * 启用步骤：
+ *   1. npm i @tauri-apps/plugin-sql
+ *   2. src-tauri/Cargo.toml 加: tauri-plugin-sql = { version = "2", features = ["sqlite"] }
+ *   3. src-tauri/src/lib.rs 注册: .plugin(tauri_plugin_sql::Builder::default().build())
+ *   4. capabilities/default.json 增加 sql 权限
+ *   5. 把本文件改名去掉 .example，并在 repository/index.ts 工厂中按平台返回它
+ *
+ * SQLite 的最大好处：可用 FTS5 做原生全文搜索，数据量大时比内存搜索更快。
+ */
+/*
+import Database from '@tauri-apps/plugin-sql'
+import type { Note, Folder } from '@/types'
+import type { INoteRepository } from '@/services/repository/INoteRepository'
+
+export class SqliteNoteRepository implements INoteRepository {
+  private db!: Database
+
+  async init(): Promise<void> {
+    this.db = await Database.load('sqlite:fafa-note.db')
+    await this.db.execute(`
+      CREATE TABLE IF NOT EXISTS notes (
+        id TEXT PRIMARY KEY, title TEXT, content TEXT, format TEXT,
+        folderId TEXT, tags TEXT, pinned INTEGER, createdAt INTEGER, updatedAt INTEGER
+      );
+      CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(title, content, content='notes', content_rowid='rowid');
+    `)
+  }
+
+  // ... 其余方法按 INoteRepository 实现，tags 用 JSON.stringify 存 TEXT ...
+}
+*/
