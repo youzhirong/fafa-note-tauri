@@ -30,6 +30,7 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { key: 'notes', label: '笔记', icon: 'pi pi-book', route: '/', placement: 'top' },
+  { key: 'json', label: 'JSON 工具', icon: 'pi pi-code', route: '/json', placement: 'top' },
   { key: 'stats', label: '统计', icon: 'pi pi-chart-bar', route: '/stats', placement: 'top' },
   { key: 'trash', label: '回收站', icon: 'pi pi-trash', route: '/trash', placement: 'top' },
   // 示例：后期可解开下面这项，并补上对应 view + route

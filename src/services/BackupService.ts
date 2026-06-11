@@ -168,6 +168,45 @@ export async function exportTextFile(content: string, fileName: string): Promise
 }
 
 /**
+ * 导出二进制文件（如 .xlsx）。
+ * Tauri 弹保存对话框写磁盘（二进制 writeFile）；Web 触发浏览器下载。
+ * @param data 文件二进制内容
+ * @param fileName 默认文件名（含扩展名）
+ * @param mime Web 下载用的 MIME 类型
+ * @returns 实际写入路径（Web 端返回文件名）
+ */
+export async function exportBinaryFile(
+  data: Uint8Array,
+  fileName: string,
+  mime: string,
+): Promise<string> {
+  if (isTauri()) {
+    const { save } = await import('@tauri-apps/plugin-dialog')
+    const { writeFile } = await import('@tauri-apps/plugin-fs')
+    const ext = fileName.split('.').pop() || 'bin'
+    const target = await save({
+      defaultPath: fileName,
+      filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
+    })
+    if (!target) throw new Error('已取消导出')
+    await writeFile(target, data)
+    return target
+  }
+
+  // 拷贝到独立 ArrayBuffer，确保 Blob 入参类型干净（规避 Uint8Array 泛型/共享内存的类型问题）
+  const ab = new ArrayBuffer(data.byteLength)
+  new Uint8Array(ab).set(data)
+  const blob = new Blob([ab], { type: mime })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName
+  a.click()
+  URL.revokeObjectURL(url)
+  return fileName
+}
+
+/**
  * 从磁盘读取备份文本（仅 Tauri）。
  * @param restorePath 还原目录，用作对话框默认路径
  */

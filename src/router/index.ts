@@ -44,6 +44,12 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/StatsView.vue'),
     meta: { title: '统计' },
   },
+  {
+    path: '/json',
+    name: 'json',
+    component: () => import('@/views/JsonToolView.vue'),
+    meta: { title: 'JSON 工具' },
+  },
 
   // 兜底：未知路径回首页
   { path: '/:pathMatch(.*)*', redirect: '/' },

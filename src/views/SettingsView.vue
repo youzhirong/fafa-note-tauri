@@ -339,7 +339,7 @@ function clearAllData() {
           <div class="app-name">fafa-note</div>
           <div class="about-line">版本 <b>{{ version }}</b></div>
           <div class="about-line">{{ tauri ? '桌面客户端 (Tauri)' : 'Web 网页版' }}</div>
-
+          <div class="about-line">fafa跨平台笔记管理软件 by: yzrydf</div>
           <div class="update-box">
             <template v-if="tauri">
               <Button
