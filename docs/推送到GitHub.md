@@ -66,7 +66,33 @@ git push
 3. 跑完后 Release 里会有 macOS / Windows / Linux 安装包和 `latest.json`，
    旧客户端即可在「关于 → 检查更新」自助升级。详见 auto-update-github.md。
 
-## 五、版本号
+## 五、版本号（发版前必做，共 4 处）
 
-发版前同步改 `package.json` 与 `src-tauri/tauri.conf.json` 的 `version`，并与标签一致
-（标签 `v0.1.0` ↔ version `0.1.0`）。
+发版前要把版本号同步改到 **4 个文件**，并与标签一致（标签 `v1.0.0` ↔ version `1.0.0`，
+标签前面带 `v`，文件里不带）。少改任何一个都可能导致"关于页/安装包版本不一致"。
+
+| 文件 | 位置 | 改哪一行 | 作用 |
+|---|---|---|---|
+| `package.json` | 项目根目录 | `"version": "1.0.0",` | Web 端关于页版本（编译期注入 `__APP_VERSION__`） |
+| `tauri.conf.json` | `src-tauri/` | `"version": "1.0.0",`（在 `productName` 下面） | **Tauri 应用 / 安装包版本**；桌面端关于页、自动更新都看它 |
+| `Cargo.toml` | `src-tauri/` | `[package]` 下的 `version = "1.0.0"` | Rust 外壳程序的版本（相当于 Rust 的 package.json） |
+| `Cargo.lock` | `src-tauri/` | `name = "fafa-note-tauri"` 那一节下面的 `version = "1.0.0"` | 锁定文件，同步改避免构建时文件变"脏" |
+
+> **`Cargo.toml` / `Cargo.lock` 是什么**：Rust 项目的清单与锁定文件，相当于前端的
+> `package.json` / `package-lock.json`。都是纯文本，在 IDEA 项目树里展开 `src-tauri` 双击打开，
+> 改掉 `version` 那一行即可。`Cargo.lock` 里 `version = "x"` 出现很多次（每个依赖一行），
+> **只改 `name = "fafa-note-tauri"` 紧跟着的那一行**，别动别的。
+
+改完提交并打标签：
+
+```bash
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
+git commit -m "chore: 版本升级到 1.0.0"
+git push origin main          # 推代码（不触发构建）
+git tag v1.0.0                # 打标签
+git push origin v1.0.0        # 推标签 → 触发三平台构建 + 发布 Release
+```
+
+> ⚠️ 打标签前务必确认 GitHub Secret `TAURI_SIGNING_PRIVATE_KEY` 是**干净的密钥**
+> （末尾不能带 `cat` 时 zsh 显示的 `%`），否则构建会在"签名更新包"这步失败。
+> 干净复制密钥：`cat ~/.tauri/fafa-note.key | pbcopy`，再粘进 Secret。
