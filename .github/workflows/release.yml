@@ -79,3 +79,27 @@ jobs:
           args: ${{ matrix.args }}
           # 生成并上传 latest.json（自动更新清单）
           includeUpdaterJson: true
+
+  # 所有平台构建完成后，基于 GitHub 的 latest.json 生成「镜像版」清单 latest-proxy.json
+  # （把内部下载地址加上镜像前缀），供国内客户端走镜像检查并下载，绕开 github.com 被墙。
+  # tauri.conf.json 的 updater endpoints 第一个就指向它（见 scripts/sync-app-config.mjs）。
+  proxy-manifest:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download latest.json from the release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release download "${{ github.ref_name }}" -R "${{ github.repository }}" -p latest.json --clobber
+
+      - name: Build mirrored manifest (latest-proxy.json)
+        run: node scripts/make-proxy-manifest.mjs latest.json latest-proxy.json
+
+      - name: Upload latest-proxy.json to the release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" latest-proxy.json -R "${{ github.repository }}" --clobber

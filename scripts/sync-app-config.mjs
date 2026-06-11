@@ -2,9 +2,12 @@
 /**
  * 把 app.config.json（应用元信息的唯一来源）同步到各构建工具的配置文件：
  *   - package.json              version / description
- *   - src-tauri/tauri.conf.json version / productName / identifier
+ *   - src-tauri/tauri.conf.json version / productName / identifier / 自动更新 endpoints
  *   - src-tauri/Cargo.toml      version / description
  *   - src-tauri/Cargo.lock      本 crate 的 version（否则下次 cargo build 才更新，工作树会变脏）
+ *
+ * 自动更新 endpoints 由 repo + updaterMirror 推导（镜像在前、GitHub 原址兜底），
+ * 用于解决国内访问 github.com 被墙的问题——镜像清单 latest-proxy.json 由 CI 生成（见 release.yml）。
  *
  * 前端（关于页）的版本号与文案不走这里，而是 vite 在编译期直接从 app.config.json 注入
  * （见 vite.config.ts）——所以发版时只需改 app.config.json 一处。
@@ -39,11 +42,35 @@ function patchJson(relPath, patch) {
 
 patchJson('package.json', { version: cfg.version, description: cfg.description })
 
-patchJson('src-tauri/tauri.conf.json', {
-  version: cfg.version,
-  productName: cfg.productName,
-  identifier: cfg.identifier,
-})
+// 自动更新源：镜像清单(latest-proxy.json，内链已改写为镜像地址) 在前，GitHub 原始清单兜底。
+// 未配置 updaterMirror 时只用 GitHub 原址。
+const ghLatest = `https://github.com/${cfg.repo}/releases/latest/download/latest.json`
+const endpoints = cfg.updaterMirror
+  ? [
+      `${cfg.updaterMirror}https://github.com/${cfg.repo}/releases/latest/download/latest-proxy.json`,
+      ghLatest,
+    ]
+  : [ghLatest]
+
+// tauri.conf.json：顶层 version/productName/identifier + 嵌套的 plugins.updater.endpoints
+{
+  const file = join(root, 'src-tauri/tauri.conf.json')
+  const data = JSON.parse(readFileSync(file, 'utf-8'))
+  const next = JSON.stringify({
+    ...data,
+    version: cfg.version,
+    productName: cfg.productName,
+    identifier: cfg.identifier,
+    plugins: {
+      ...data.plugins,
+      updater: { ...data.plugins?.updater, endpoints },
+    },
+  })
+  if (JSON.stringify(data) !== next) {
+    writeFileSync(file, JSON.stringify(JSON.parse(next), null, 2) + '\n')
+    console.log('  ✓ src-tauri/tauri.conf.json')
+  }
+}
 
 // Cargo.toml：行首匹配，仅改 [package] 段的 version / description，避免误伤依赖项里的 version
 const cargoPath = join(root, 'src-tauri/Cargo.toml')

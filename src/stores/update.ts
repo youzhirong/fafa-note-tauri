@@ -14,6 +14,7 @@ import {
   type CheckStatus,
   type TauriUpdate,
 } from '@/services/UpdateService'
+import { useSettingsStore } from './settings'
 
 /** idle：未开始；done：下载完成（一般会随即重启）；其余对应检查/下载各阶段 */
 export type UpdatePhase = 'idle' | 'checking' | 'downloading' | 'done' | CheckStatus
@@ -42,7 +43,10 @@ export const useUpdateStore = defineStore('update', () => {
     progress.value = 0
     pending = null
 
-    const r = await checkForUpdate()
+    // 若用户开启了「更新走代理」，把代理地址带给检查/下载（github.com 被墙时用）
+    const s = useSettingsStore().settings
+    const proxy = s.updaterProxyEnabled ? s.updaterProxyUrl.trim() || undefined : undefined
+    const r = await checkForUpdate(proxy)
     phase.value = r.status
     message.value = r.message
     if (r.available && r.update) {

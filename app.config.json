@@ -1,9 +1,11 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "productName": "fafa-note",
   "identifier": "com.fafa.note",
   "author": "yzrydf",
   "description": "跨平台笔记管理软件（Web / 桌面 / 移动），基于 Vue3 + PrimeVue + Tauri2",
   "aboutTagline": "fafa跨平台笔记管理软件",
-  "homepage": "https://github.com/youzhirong/fafa-note-tauri"
+  "homepage": "https://github.com/youzhirong/fafa-note-tauri",
+  "repo": "youzhirong/fafa-note-tauri",
+  "updaterMirror": "https://gh-proxy.com/"
 }

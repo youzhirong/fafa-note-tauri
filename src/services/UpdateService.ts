@@ -64,8 +64,10 @@ export async function getAppVersion(): Promise<string> {
 /**
  * 仅检查是否有新版本，**不下载**。
  * 发现新版本时返回 version / notes 与 update 句柄，由调用方决定是否继续下载。
+ * @param proxy 可选的 HTTP 转发代理地址（如 http://127.0.0.1:7890）。
+ *   传入后，检查与后续下载都会走它——用于 github.com 被墙的网络。
  */
-export async function checkForUpdate(): Promise<CheckResult> {
+export async function checkForUpdate(proxy?: string): Promise<CheckResult> {
   if (!isTauri()) {
     return {
       status: 'web',
@@ -76,7 +78,8 @@ export async function checkForUpdate(): Promise<CheckResult> {
 
   try {
     const { check } = await import('@tauri-apps/plugin-updater')
-    const update = (await check()) as TauriUpdate | null
+    // proxy 一旦在 check 时传入，会被记到 Update 上，download 阶段自动复用（见插件文档）。
+    const update = (await check(proxy ? { proxy } : undefined)) as TauriUpdate | null
 
     if (!update) {
       return { status: 'latest', available: false, message: '已是最新版本。' }

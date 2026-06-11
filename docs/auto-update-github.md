@@ -49,6 +49,9 @@ npm run tauri signer generate -- -w ~/.tauri/fafa-note.key
 把 `<OWNER>/<REPO>` 换成你的 GitHub 仓库，例如 `zhangsan/fafa-note-tauri`。
 `latest.json` 是更新清单，由下面的工作流自动生成并上传到每个 Release。
 
+> 📌 本仓库里 `endpoints` **不用手填**：它由 `app.config.json` 的 `repo` + `updaterMirror` 经
+> `scripts/sync-app-config.mjs` 自动生成（含国内镜像源，见文末「国内访问」一节）。你只需保证 `pubkey` 正确。
+
 > ⚠️ 重要：
 > - `plugins.updater` 配置块**一旦写了就必须保证完整且有效**（含 `endpoints` 和合法的 `pubkey`）。
 >   updater 插件在**应用启动时**就会读取它，缺失或为 null 会导致**启动即崩溃**
@@ -154,3 +157,71 @@ git push origin v0.2.0
   }
 }
 ```
+
+---
+
+## 国内访问：github.com 被墙怎么办（镜像源 + 代理）
+
+**问题**：默认更新源是 `https://github.com/.../releases/latest/download/latest.json`，它走 `github.com`
+主站并跳转到 `objects.githubusercontent.com` 下载。这两个域名在国内常被墙，点「检查更新」会报
+`error sending request for url (...latest.json)`——这是网络层连不上，不是配置错。
+而且 `latest.json` 内部每个平台的 `url` 也指向 `github.com`，即使清单拿到了，**下载那步同样会失败**。
+
+本仓库用**两条互补的方案**解决，无需额外服务器：
+
+### 方案 B：镜像源（默认开启，对所有用户自动生效）
+
+思路：再发布一份**内部下载地址已改成镜像地址**的清单 `latest-proxy.json`，并把更新源里
+**镜像清单放第一、GitHub 原址兜底**。国内客户端命中第一个（镜像可达）→ 清单内的 url 也是镜像地址 →
+检查和下载全程走镜像；国外客户端镜像若慢/失败，回退到第二个 GitHub 原址。
+
+涉及三处，都已就绪：
+
+1. **镜像地址只配一处** —— `app.config.json`：
+
+   ```jsonc
+   {
+     "repo": "youzhirong/fafa-note-tauri",
+     "updaterMirror": "https://gh-proxy.com/"   // 末尾要带斜杠；留空则不启用镜像
+   }
+   ```
+
+2. **`scripts/sync-app-config.mjs`** 据此推导 `tauri.conf.json` 的 endpoints（`npm run sync` 自动跑）：
+
+   ```jsonc
+   "endpoints": [
+     "https://gh-proxy.com/https://github.com/youzhirong/fafa-note-tauri/releases/latest/download/latest-proxy.json",
+     "https://github.com/youzhirong/fafa-note-tauri/releases/latest/download/latest.json"
+   ]
+   ```
+
+3. **CI**（`release.yml` 的 `proxy-manifest` 任务）在构建后，用 `scripts/make-proxy-manifest.mjs`
+   把 `latest.json` 里每个 `platforms.*.url` 前面加上镜像前缀，生成 `latest-proxy.json` 上传到同一 Release。
+   例如 `…/fafa-note_x64.dmg` → `https://gh-proxy.com/https://github.com/…/fafa-note_x64.dmg`。
+
+   > 签名(`signature`)是对**文件内容**签的、与 url 无关，所以只改 url 不动签名，客户端校验照常通过、安全性不降低。
+
+**想换镜像 / 关镜像**：只改 `app.config.json` 的 `updaterMirror`（如换成 `https://ghfast.top/`
+或 `https://ghproxy.net/`，或留空 `""` 关闭），重新发版即可。常见可用镜像：`gh-proxy.com`、`ghfast.top`、`ghproxy.net`
+（免费镜像稳定性会波动，所以才保留 GitHub 原址兜底 + 下面的方案 A）。
+
+### 方案 A：本地代理（可选，给有科学上网的用户兜底）
+
+镜像万一全挂了，用户可在「**关于 → 更新走代理**」打开开关，填本机代理端口（点预设按钮可快速填入）：
+
+```
+http://127.0.0.1:7890      # Clash
+http://127.0.0.1:7897      # Clash 混合端口
+http://127.0.0.1:10809     # V2RayN
+socks5://127.0.0.1:1080    # SOCKS5
+```
+
+开启后，检查与下载都会走这个**转发代理**（对应 `check({ proxy })`，见 `src/services/UpdateService.ts`）。
+注意它和方案 B 的「镜像网站」是两码事：这里填的是你本机科学上网软件监听的代理地址，不是 `gh-proxy.com`。
+设置存在 `updaterProxyEnabled` / `updaterProxyUrl`（`src/types/index.ts`），持久化在本地。
+
+### 一句话总结
+
+- 普通用户：**什么都不用设**，默认走镜像源更新（方案 B）。
+- 有代理的用户：镜像不灵时，打开「更新走代理」填本机端口（方案 A）。
+- 维护者：换镜像只改 `app.config.json` 的 `updaterMirror` 一处。

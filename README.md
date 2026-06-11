@@ -69,7 +69,9 @@ npm run tauri:build
 
 ```
 app.config.json            ★ 应用元信息唯一来源（版本/产品名/关于页文案）——发版只改这里
-scripts/sync-app-config.mjs   把 app.config.json 的版本同步到 package.json / tauri.conf.json / Cargo.toml
+scripts/
+├─ sync-app-config.mjs      把 app.config.json 的版本/镜像源同步到 package.json / tauri.conf.json / Cargo.*
+└─ make-proxy-manifest.mjs  CI 用：生成内链走镜像的 latest-proxy.json（国内自动更新，见 docs）
 src/
 ├─ main.ts                  应用入口（装配 Vue/Pinia/Router/PrimeVue）
 ├─ App.vue                  根组件

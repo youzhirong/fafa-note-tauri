@@ -81,6 +81,15 @@ export interface AppSettings {
    * 留空则不使用代理。Tauri 端不需要代理（plugin-http 无跨域限制）。
    */
   proxyUrl: string
+  /**
+   * 是否让「检查更新」走 HTTP 代理（仅 Tauri 桌面端）。
+   * 用于 github.com 被墙的网络：填本机科学上网软件的代理端口即可，检查与下载都会走它。
+   * 注意这是「转发代理」(如 http://127.0.0.1:7890)，不是 gh-proxy.com 那种「镜像网站」——
+   * 镜像走的是另一条路（tauri.conf.json 里的 updater endpoints，见 docs/auto-update-github.md）。
+   */
+  updaterProxyEnabled: boolean
+  /** 更新用的 HTTP 代理地址，形如 http://127.0.0.1:7890 / socks5://127.0.0.1:1080 */
+  updaterProxyUrl: string
   /** Markdown 编辑器要显示的工具栏按钮（取值见 config/editor.ts） */
   editorToolbars: string[]
   /** 编辑器/预览字号（px） */
@@ -108,6 +117,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   backupPath: '',
   restorePath: '',
   proxyUrl: '',
+  updaterProxyEnabled: false,
+  updaterProxyUrl: '',
   editorToolbars: [...DEFAULT_TOOLBARS],
   editorFontSize: 14,
   defaultViewMode: 'live',

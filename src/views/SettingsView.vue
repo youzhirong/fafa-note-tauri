@@ -57,6 +57,13 @@ const appName = __APP_NAME__
 const appTagline = __APP_TAGLINE__
 const appAuthor = __APP_AUTHOR__
 const appHomepage = __APP_HOMEPAGE__
+// 常见科学上网软件的本地 HTTP 代理端口，点一下即可填入（也可手动改成自己的）
+const proxyPresets = [
+  { label: 'Clash', value: 'http://127.0.0.1:7890' },
+  { label: 'Clash 混合', value: 'http://127.0.0.1:7897' },
+  { label: 'V2RayN', value: 'http://127.0.0.1:10809' },
+  { label: 'SOCKS5', value: 'socks5://127.0.0.1:1080' },
+]
 // 更新状态放在 updateStore（单例）里，下载进度才能跨「切换菜单」留存，切回来继续显示。
 const version = ref('—')
 onMounted(async () => {
@@ -373,6 +380,36 @@ function clearAllData() {
                 class="update-progress"
               />
               <p class="hint">检查到新版本会先展示更新内容，由你确认后再下载并重启完成升级。</p>
+
+              <!-- 更新代理（github.com 打不开时用）。默认已走镜像源，这里是给有本地代理的用户的可选项 -->
+              <div class="update-proxy">
+                <div class="row auto-row">
+                  <label>更新走代理</label>
+                  <ToggleSwitch v-model="s.updaterProxyEnabled" />
+                </div>
+                <template v-if="s.updaterProxyEnabled">
+                  <InputText
+                    v-model="s.updaterProxyUrl"
+                    placeholder="http://127.0.0.1:7890"
+                    class="proxy-input"
+                  />
+                  <div class="proxy-presets">
+                    <Button
+                      v-for="p in proxyPresets"
+                      :key="p.value"
+                      :label="p.label"
+                      size="small"
+                      severity="secondary"
+                      text
+                      @click="s.updaterProxyUrl = p.value"
+                    />
+                  </div>
+                  <p class="hint">
+                    填本机科学上网软件的代理端口（点上方按钮可快速填入），检查与下载都会走它。
+                    这是「转发代理」，不是 gh-proxy 那种镜像网站。不确定就保持关闭——应用默认已通过镜像源更新。
+                  </p>
+                </template>
+              </div>
             </template>
             <template v-else>
               <p class="hint">Web 版随网页托管更新，刷新页面即为最新版本，无需手动升级。</p>
@@ -465,6 +502,26 @@ function clearAllData() {
 .update-progress {
   width: 260px;
   max-width: 100%;
+}
+.update-proxy {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--fafa-border);
+  width: 100%;
+  max-width: 420px;
+}
+.update-proxy .proxy-input {
+  width: 100%;
+  margin-top: 4px;
+}
+.update-proxy .proxy-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-top: 6px;
+}
+.update-proxy .auto-row {
+  justify-content: space-between;
 }
 .row {
   display: flex;

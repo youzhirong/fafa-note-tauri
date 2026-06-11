@@ -1,6 +1,6 @@
 [package]
 name = "fafa-note-tauri"
-version = "1.0.1"
+version = "1.0.2"
 description = "跨平台笔记管理软件（Web / 桌面 / 移动），基于 Vue3 + PrimeVue + Tauri2"
 authors = ["you"]
 edition = "2021"
