@@ -29,7 +29,7 @@
 - **自动定时备份**（可在设置开启并设间隔）
 - **应用内日志页**：收集 console 输出与全局错误，桌面端也能排查问题
 - **设置页竖向分类菜单**（外观/编辑器/备份/网络/数据/关于）
-- **关于页**：显示版本；桌面端「检查更新」自动下载安装并重启（需配置更新源，见 docs），Web 端刷新即最新
+- **关于页**：显示版本与应用信息（统一来自 `app.config.json`）；桌面端「检查更新」先展示新版本与更新说明、**由用户确认后**再下载安装并重启（进度跨页面切换不丢失；需配置更新源，见 docs），Web 端刷新即最新
 - 三列布局：可收起的**菜单栏** + **笔记列表** + **内容区**，列宽可拖拽并记忆
 - 设置：主题（亮/暗/跟随系统）、**备份目录**、**还原目录**、**代理地址**
 - 备份/还原：导出导入 **JSON**（Web 端下载/选文件，桌面端读写磁盘目录）
@@ -68,6 +68,8 @@ npm run tauri:build
 ## 📁 目录结构
 
 ```
+app.config.json            ★ 应用元信息唯一来源（版本/产品名/关于页文案）——发版只改这里
+scripts/sync-app-config.mjs   把 app.config.json 的版本同步到 package.json / tauri.conf.json / Cargo.toml
 src/
 ├─ main.ts                  应用入口（装配 Vue/Pinia/Router/PrimeVue）
 ├─ App.vue                  根组件
@@ -76,7 +78,7 @@ src/
 ├─ types/                   数据模型（Note / Folder / AppSettings / 备份结构）
 ├─ config/navigation.ts     ★ 左侧菜单栏配置（新增功能入口在这里）
 ├─ router/index.ts          路由
-├─ stores/                  Pinia 状态：notes / settings / ui
+├─ stores/                  Pinia 状态：notes / settings / ui / update（检查更新进度，跨页面留存）
 ├─ services/
 │   ├─ repository/          ★ 存储层抽象 + IndexedDB 实现（可换 SQLite）
 │   ├─ SearchService.ts     全文搜索

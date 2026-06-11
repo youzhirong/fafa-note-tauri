@@ -6,15 +6,22 @@ import { readFileSync } from 'node:fs'
 // Tauri 在开发时会注入这些环境变量，用来区分目标平台
 const host = process.env.TAURI_DEV_HOST
 
-// 读取应用版本，注入为编译期常量 __APP_VERSION__（关于页展示用）
-const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8'))
+// 应用元信息的唯一来源：app.config.json（发版只改这一处）。
+// 这里把它注入为编译期常量，供「关于」页展示；版本号同步到 package.json / tauri.conf.json / Cargo.toml
+// 由 scripts/sync-app-config.mjs 负责（npm run sync）。
+const appConfig = JSON.parse(readFileSync(new URL('./app.config.json', import.meta.url), 'utf-8'))
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [vue()],
 
   define: {
-    __APP_VERSION__: JSON.stringify(pkg.version),
+    __APP_VERSION__: JSON.stringify(appConfig.version),
+    __APP_NAME__: JSON.stringify(appConfig.productName),
+    __APP_DESCRIPTION__: JSON.stringify(appConfig.description),
+    __APP_TAGLINE__: JSON.stringify(appConfig.aboutTagline),
+    __APP_AUTHOR__: JSON.stringify(appConfig.author),
+    __APP_HOMEPAGE__: JSON.stringify(appConfig.homepage),
   },
 
   // 使用 @ 指向 src，方便后期重构时移动文件不改大量相对路径

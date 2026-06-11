@@ -77,9 +77,12 @@ npm run tauri signer generate -- -w ~/.tauri/fafa-note.key
 
 ## 五、发版流程
 
+版本号与应用元信息**只在一个地方维护**：根目录的 `app.config.json`（见下方「应用元信息唯一来源」）。
+
 ```bash
-# 1. 升版本号（package.json 和 tauri.conf.json 的 version 要一致）
-# 2. 打标签并推送
+# 1. 改 app.config.json 里的 version（只此一处；其它配置文件由脚本自动同步）
+# 2. 打与之匹配的标签并推送（tag 用 v + 版本号）
+git commit -am "release v0.2.0"
 git tag v0.2.0
 git push origin v0.2.0
 ```
@@ -87,16 +90,56 @@ git push origin v0.2.0
 工作流跑完后，GitHub 上会出现 `v0.2.0` Release，含各平台安装包 + `latest.json`。
 此时旧版本客户端在「关于 → 检查更新」就能检测到 0.2.0 并自助升级。
 
+> CI 在构建前会先跑 `node scripts/sync-app-config.mjs`，把 `app.config.json` 的版本同步进
+> `tauri.conf.json` 等，确保打出的包版本与 `app.config.json` 一致。**记得让 tag 的版本号与
+> `app.config.json` 的 `version` 对应**（如 `app.config.json` 是 `0.2.0`，tag 就用 `v0.2.0`）。
+
 ---
 
-## 工作原理简述
+## 应用元信息唯一来源：`app.config.json`
+
+升版本曾经要改好几处（`package.json` / `tauri.conf.json` / `Cargo.toml` 的 version，外加「关于」页文案），
+容易漏改、不一致。现统一到根目录 **`app.config.json`** 一处：
+
+```jsonc
+{
+  "version": "1.0.0",                 // 版本号（发版改这里）
+  "productName": "fafa-note",         // 应用/窗口产品名
+  "identifier": "com.fafa.note",      // 应用唯一标识
+  "author": "yzrydf",                 // 关于页作者署名
+  "description": "…",                 // 应用描述（同步到 package.json / Cargo.toml）
+  "aboutTagline": "fafa跨平台笔记管理软件", // 关于页副标题
+  "homepage": "https://github.com/youzhirong/fafa-note-tauri"
+}
+```
+
+它如何生效：
+
+- **构建工具配置**（`package.json` / `tauri.conf.json` / `Cargo.toml` / `Cargo.lock`）的版本号等，由
+  `scripts/sync-app-config.mjs` 同步写入。`npm run sync` 手动跑一次即可；`npm run tauri:dev`、
+  `npm run tauri:build` 已在启动 tauri 前自动先跑，CI 也会跑（见上）。
+- **「关于」页文案与版本号**：`vite.config.ts` 在编译期把 `app.config.json` 注入为常量
+  （`__APP_VERSION__` / `__APP_NAME__` / `__APP_AUTHOR__` 等），无需手动同步。
+
+所以发版只改 `app.config.json`，其余自动对齐。
+
+---
+
+## 工作原理简述（检查更新流程）
+
+点「检查更新」**只检查、不直接下载**，是否升级交给用户决定：
 
 ```
 点击「检查更新」
-  → 读取 endpoints 里的 latest.json（GitHub Releases 上）
-  → 比较其中 version 与当前版本
-  → 有更新：下载对应平台的签名包 → 用 pubkey 校验 → 安装 → relaunch 重启
+  → 读取 endpoints 里的 latest.json（GitHub Releases 上），比较 version 与当前版本
+  → 已是最新：提示「已是最新版本」
+  → 发现新版本：弹框展示版本号 + 更新说明(notes)，等用户确认
+        · 点「稍后」 → 不下载
+        · 点「立即更新」→ 下载签名包 → 用 pubkey 校验 → 安装 → relaunch 重启
 ```
+
+> 下载进度由全局 store（`src/stores/update.ts`）承载，**切换菜单再切回「关于」页进度不丢失**
+> （下载始终在后台进行）。
 
 清单 `latest.json` 形如（tauri-action 自动生成，无需手写）：
 

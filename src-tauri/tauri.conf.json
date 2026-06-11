@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "fafa-note 笔记",
+        "title": "fafa-note 笔记 by: yzrydf",
         "width": 1280,
         "height": 820,
         "minWidth": 800,
@@ -23,7 +23,9 @@
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["$APPDATA/images/**"]
+        "scope": [
+          "$APPDATA/images/**"
+        ]
       }
     }
   },

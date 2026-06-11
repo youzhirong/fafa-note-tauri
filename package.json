@@ -5,12 +5,13 @@
   "type": "module",
   "description": "跨平台笔记管理软件（Web / 桌面 / 移动），基于 Vue3 + PrimeVue + Tauri2",
   "scripts": {
+    "sync": "node scripts/sync-app-config.mjs",
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:dev": "npm run sync && tauri dev",
+    "tauri:build": "npm run sync && tauri build"
   },
   "dependencies": {
     "@primevue/themes": "^4.2.5",

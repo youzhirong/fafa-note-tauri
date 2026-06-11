@@ -11,12 +11,14 @@ import Select from 'primevue/select'
 import MultiSelect from 'primevue/multiselect'
 import InputNumber from 'primevue/inputnumber'
 import ToggleSwitch from 'primevue/toggleswitch'
+import ProgressBar from 'primevue/progressbar'
 import { AVAILABLE_TOOLBARS } from '@/config/editor'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import { isTauri } from '@/platform'
 import { useSettingsStore } from '@/stores/settings'
 import { useNotesStore } from '@/stores/notes'
+import { useUpdateStore } from '@/stores/update'
 import { getNoteRepository } from '@/services/repository'
 import type { BackupBundle } from '@/types'
 import {
@@ -26,10 +28,11 @@ import {
   readBackupFromFile,
   pickDirectory,
 } from '@/services/BackupService'
-import { getAppVersion, checkAndInstall } from '@/services/UpdateService'
+import { getAppVersion } from '@/services/UpdateService'
 
 const settingsStore = useSettingsStore()
 const notesStore = useNotesStore()
+const updateStore = useUpdateStore()
 const repo = getNoteRepository()
 const toast = useToast()
 const confirm = useConfirm()
@@ -49,22 +52,34 @@ const sections = [
 const active = ref('appearance')
 
 // ---------- 关于 / 更新 ----------
+// 关于页文案统一来自 app.config.json（vite 编译期注入），发版只改那一处。
+const appName = __APP_NAME__
+const appTagline = __APP_TAGLINE__
+const appAuthor = __APP_AUTHOR__
+const appHomepage = __APP_HOMEPAGE__
+// 更新状态放在 updateStore（单例）里，下载进度才能跨「切换菜单」留存，切回来继续显示。
 const version = ref('—')
-const checking = ref(false)
-const updateMsg = ref('')
 onMounted(async () => {
   version.value = await getAppVersion()
 })
+
+/** 点「检查更新」：只检查，把是否升级的决定权交给用户 */
 async function checkUpdate() {
-  checking.value = true
-  updateMsg.value = '正在检查更新…'
-  const r = await checkAndInstall((p) => (updateMsg.value = p))
-  updateMsg.value = r.message
-  checking.value = false
-  if (r.status === 'error' || r.status === 'unconfigured') {
-    toast.add({ severity: 'warn', summary: '检查更新', detail: r.message, life: 5000 })
-  } else if (r.status === 'latest') {
-    toast.add({ severity: 'success', summary: '检查更新', detail: r.message, life: 3000 })
+  const status = await updateStore.check()
+  if (status === 'available') {
+    // 发现新版本：展示更新内容，由用户确认是否下载
+    confirm.require({
+      header: `发现新版本 ${updateStore.latestVersion}`,
+      message: updateStore.notes,
+      icon: 'pi pi-arrow-circle-up',
+      acceptLabel: '立即更新',
+      rejectLabel: '稍后',
+      accept: () => updateStore.download(),
+    })
+  } else if (status === 'latest') {
+    toast.add({ severity: 'success', summary: '检查更新', detail: updateStore.message, life: 3000 })
+  } else if (status === 'error' || status === 'unconfigured') {
+    toast.add({ severity: 'warn', summary: '检查更新', detail: updateStore.message, life: 5000 })
   }
 }
 function reloadPage() {
@@ -336,20 +351,28 @@ function clearAllData() {
       <section v-show="active === 'about'">
         <h3>关于</h3>
         <div class="about">
-          <div class="app-name">fafa-note</div>
+          <div class="app-name">{{ appName }}</div>
           <div class="about-line">版本 <b>{{ version }}</b></div>
           <div class="about-line">{{ tauri ? '桌面客户端 (Tauri)' : 'Web 网页版' }}</div>
-          <div class="about-line">fafa跨平台笔记管理软件 by: yzrydf</div>
+          <div class="about-line">{{ appTagline }} by: {{ appAuthor }}</div>
+          <div class="about-line">
+            <a :href="appHomepage" target="_blank" rel="noopener">{{ appHomepage }}</a>
+          </div>
           <div class="update-box">
             <template v-if="tauri">
               <Button
                 icon="pi pi-sync"
                 label="检查更新"
-                :loading="checking"
+                :loading="updateStore.busy()"
                 @click="checkUpdate"
               />
-              <p v-if="updateMsg" class="hint">{{ updateMsg }}</p>
-              <p class="hint">检查到新版本会自动下载并重启完成升级。</p>
+              <p v-if="updateStore.message" class="hint">{{ updateStore.message }}</p>
+              <ProgressBar
+                v-if="updateStore.downloading"
+                :value="updateStore.progress"
+                class="update-progress"
+              />
+              <p class="hint">检查到新版本会先展示更新内容，由你确认后再下载并重启完成升级。</p>
             </template>
             <template v-else>
               <p class="hint">Web 版随网页托管更新，刷新页面即为最新版本，无需手动升级。</p>
@@ -438,6 +461,10 @@ function clearAllData() {
   flex-direction: column;
   gap: 8px;
   align-items: flex-start;
+}
+.update-progress {
+  width: 260px;
+  max-width: 100%;
 }
 .row {
   display: flex;

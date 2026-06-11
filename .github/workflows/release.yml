@@ -51,6 +51,11 @@ jobs:
       - name: Install frontend deps
         run: npm ci
 
+      # 把 app.config.json（版本/产品名等唯一来源）同步进 package.json / tauri.conf.json / Cargo.toml，
+      # 确保 tauri-action 读到的版本与 app.config.json 一致（发版只改 app.config.json 一处）。
+      - name: Sync app metadata from app.config.json
+        run: node scripts/sync-app-config.mjs
+
       # 仓库默认 createUpdaterArtifacts=false（保证本地无签名也能出包）；
       # 发布时这里临时打开，让 CI 生成签名更新产物 + latest.json。
       - name: Enable updater artifacts for release
