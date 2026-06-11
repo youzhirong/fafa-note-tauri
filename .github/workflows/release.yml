@@ -1,0 +1,76 @@
+# 推送 v* 标签时，在三大平台构建+签名 fafa-note 桌面端，
+# 并把安装包与更新清单 latest.json 发布到 GitHub Release（供应用内自动更新）。
+#
+# 前置：在仓库 Secrets 配置 TAURI_SIGNING_PRIVATE_KEY / TAURI_SIGNING_PRIVATE_KEY_PASSWORD，
+# 并在 tauri.conf.json 开启 bundle.createUpdaterArtifacts + 配置 plugins.updater。
+# 详见 docs/auto-update-github.md。
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    permissions:
+      contents: write # 需要写权限来创建 Release / 上传产物
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest # Apple Silicon
+            args: '--target aarch64-apple-darwin'
+          - platform: macos-latest # Intel
+            args: '--target x86_64-apple-darwin'
+          - platform: ubuntu-22.04
+            args: ''
+          - platform: windows-latest
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Install Linux deps
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install frontend deps
+        run: npm ci
+
+      # 仓库默认 createUpdaterArtifacts=false（保证本地无签名也能出包）；
+      # 发布时这里临时打开，让 CI 生成签名更新产物 + latest.json。
+      - name: Enable updater artifacts for release
+        shell: bash
+        run: |
+          node -e "const f='src-tauri/tauri.conf.json';const c=require('./'+f);c.bundle.createUpdaterArtifacts=true;require('fs').writeFileSync(f,JSON.stringify(c,null,2)+'\n')"
+
+      - name: Build & release (Tauri)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 更新包签名（与 tauri.conf.json 里的 pubkey 对应）
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'fafa-note ${{ github.ref_name }}'
+          releaseBody: '下载下方对应平台的安装包；已安装的旧版本可在「关于 → 检查更新」自助升级。'
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
+          # 生成并上传 latest.json（自动更新清单）
+          includeUpdaterJson: true

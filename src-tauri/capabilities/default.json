@@ -1,0 +1,33 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "fafa-note 默认权限：对话框、文件读写、HTTP。",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+
+    "dialog:default",
+
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
+    "fs:allow-write-file",
+    "fs:allow-mkdir",
+    "fs:allow-exists",
+    "fs:allow-appdata-read-recursive",
+    "fs:allow-appdata-write-recursive",
+    {
+      "//": "备份/还原需要写到用户任选目录，故放开全盘范围。如需更安全可改成仅 $DOCUMENT、$APPDATA 等。",
+      "identifier": "fs:scope",
+      "allow": ["**"]
+    },
+
+    {
+      "//": "HTTP 代理直连，允许所有 http/https。可按需收紧到具体域名。",
+      "identifier": "http:default",
+      "allow": [{ "url": "https://**" }, { "url": "http://**" }]
+    },
+
+    "updater:default",
+    "process:default"
+  ]
+}
