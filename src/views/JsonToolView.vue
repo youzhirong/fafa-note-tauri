@@ -14,7 +14,7 @@
  *     · live   ：编辑器「当前内容」，由 @update:text / @update:json 同步
  *   工具栏操作读 live、写回 feed+live；用户打字只更新 live，不会反向重置编辑器。
  */
-import { ref, reactive, watch, onMounted, onBeforeUnmount, useTemplateRef } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, useTemplateRef } from 'vue'
 import JsonEditor from 'vue3-ts-jsoneditor'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
@@ -137,9 +137,27 @@ function clear(side: Side) {
 }
 
 /**
- * 导出某侧 JSON 为 Excel(.xlsx)。
- * 对象→1 行；数组→逐行；所有单元格以文本形式写入（避免大数字科学计数法）。
+ * 把任意已解析值导出为 Excel(.xlsx) 并下载/落盘。
+ * 对象→1 行；数组→逐行；所有单元格以文本形式写入（避免大数字科学计数法）；表头带背景色。
  */
+async function downloadXlsx(value: unknown, baseName: string) {
+  try {
+    const bytes = await jsonToXlsxBytes(value)
+    const d = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
+    const where = await exportBinaryFile(
+      bytes,
+      `${baseName}-${stamp}.xlsx`,
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    toast.add({ severity: 'success', summary: '已导出 Excel', detail: where, life: 3000 })
+  } catch (e) {
+    toast.add({ severity: 'warn', summary: '导出失败', detail: (e as Error).message, life: 3000 })
+  }
+}
+
+/** 导出某侧 JSON 为 Excel(.xlsx) */
 async function exportExcel(side: Side) {
   const v = parseSide(side)
   if (v === PARSE_FAIL) return
@@ -147,20 +165,7 @@ async function exportExcel(side: Side) {
     toast.add({ severity: 'warn', summary: '内容为空，无法导出', life: 2500 })
     return
   }
-  try {
-    const bytes = await jsonToXlsxBytes(v)
-    const d = new Date()
-    const pad = (n: number) => String(n).padStart(2, '0')
-    const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
-    const where = await exportBinaryFile(
-      bytes,
-      `json-${side}-${stamp}.xlsx`,
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    )
-    toast.add({ severity: 'success', summary: '已导出 Excel', detail: where, life: 3000 })
-  } catch (e) {
-    toast.add({ severity: 'warn', summary: '导出失败', detail: (e as Error).message, life: 3000 })
-  }
+  await downloadXlsx(v, `json-${side}`)
 }
 
 /** 交换左右内容 */
@@ -244,6 +249,35 @@ function fmtVal(v: unknown): string {
   return s.length > 80 ? s.slice(0, 80) + '…' : s
 }
 
+/** 对比结果展示视图：表格 / JSON */
+const diffView = ref<'table' | 'json'>('table')
+
+/** 对比结果 JSON 编辑器的内部模式（默认进入「表格」页签，可在其菜单切到 文本/树形） */
+const diffMode = ref<'text' | 'tree' | 'table'>('table')
+
+/** 把对比结果整理成结构化数组（用于 JSON 展示与 Excel 导出） */
+function buildDiffRows(): Record<string, unknown>[] {
+  return (diffs.value ?? []).map((d) => ({
+    类型: DIFF_LABEL[d.type],
+    路径: d.path,
+    // added 时左侧本不存在、removed 时右侧本不存在——置空避免误导
+    左侧值: d.type === 'added' ? null : (d.leftValue ?? null),
+    右侧值: d.type === 'removed' ? null : (d.rightValue ?? null),
+  }))
+}
+
+/** 对比结果的 JSON 文本（喂给只读 JsonEditor 展示，可用其菜单复制/格式化） */
+const diffJsonText = computed(() => JSON.stringify(buildDiffRows(), null, 2))
+
+/** 导出对比结果为 Excel */
+async function exportDiffExcel() {
+  if (!diffs.value || diffs.value.length === 0) {
+    toast.add({ severity: 'warn', summary: '暂无对比差异，无法导出', life: 2500 })
+    return
+  }
+  await downloadXlsx(buildDiffRows(), 'json-diff')
+}
+
 // —— 暗色主题跟随：监听 <html class="dark-theme"> ——
 const isDark = ref(false)
 let themeObs: MutationObserver | null = null
@@ -293,7 +327,7 @@ onBeforeUnmount(() => {
 
     <!-- 双栏编辑器 -->
     <div class="panes">
-      <section v-for="side in (['left', 'right'] as const)" :key="side" class="pane">
+      <section v-for="side in (['left', 'right'] as const)" :key="side" class="pane" :class="side">
         <div class="pane-bar">
           <span class="pane-title">{{ side === 'left' ? '左侧' : '右侧' }}</span>
           <div class="pane-actions">
@@ -332,22 +366,57 @@ onBeforeUnmount(() => {
       <div class="diff-head">
         <h3>对比结果</h3>
         <span v-if="diffs && diffs.length" class="diff-count">共 {{ diffs.length }} 处差异</span>
+        <span class="diff-spacer" />
+        <!-- 有差异时：表格/JSON 视图切换 + 导出 -->
+        <template v-if="diffs && diffs.length">
+          <Button
+            :label="diffView === 'table' ? 'JSON 视图' : '表格视图'"
+            :icon="diffView === 'table' ? 'pi pi-code' : 'pi pi-table'"
+            text
+            size="small"
+            @click="diffView = diffView === 'table' ? 'json' : 'table'"
+          />
+          <Button
+            icon="pi pi-file-excel"
+            label="导出 Excel"
+            text
+            size="small"
+            @click="exportDiffExcel"
+          />
+        </template>
       </div>
       <p v-if="diffs === null" class="diff-hint">点击右上角「对比」查看两侧 JSON 的结构差异。</p>
       <p v-else-if="diffs.length === 0" class="diff-ok"><i class="pi pi-check-circle" /> 两边 JSON 完全一致</p>
-      <table v-else class="diff-table">
-        <thead>
-          <tr><th>类型</th><th>路径</th><th>左侧</th><th>右侧</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="(d, i) in diffs" :key="i" :class="`row-${d.type}`">
-            <td><span class="badge" :class="`badge-${d.type}`">{{ DIFF_LABEL[d.type] }}</span></td>
-            <td class="path">{{ d.path }}</td>
-            <td class="val">{{ fmtVal(d.leftValue) }}</td>
-            <td class="val">{{ fmtVal(d.rightValue) }}</td>
-          </tr>
-        </tbody>
-      </table>
+      <template v-else>
+        <!-- JSON 视图：复用编辑器控件展示对比结果，功能与上方两栏一致，默认进入「表格」页签 -->
+        <div v-if="diffView === 'json'" class="diff-editor">
+          <JsonEditor
+            :text="diffJsonText"
+            :mode="diffMode"
+            :dark-theme="isDark"
+            :main-menu-bar="true"
+            :navigation-bar="false"
+            :status-bar="true"
+            :on-render-menu="onRenderMenu"
+            :on-render-context-menu="onRenderContextMenu"
+            @update:mode="(m: 'text' | 'tree' | 'table') => (diffMode = m)"
+          />
+        </div>
+        <!-- 表格视图 -->
+        <table v-else class="diff-table">
+          <thead>
+            <tr><th>类型</th><th>路径</th><th>左侧</th><th>右侧</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="(d, i) in diffs" :key="i" :class="`row-${d.type}`">
+              <td><span class="badge" :class="`badge-${d.type}`">{{ DIFF_LABEL[d.type] }}</span></td>
+              <td class="path">{{ d.path }}</td>
+              <td class="val">{{ fmtVal(d.leftValue) }}</td>
+              <td class="val">{{ fmtVal(d.rightValue) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </template>
     </section>
   </div>
 </template>
@@ -383,13 +452,14 @@ onBeforeUnmount(() => {
   margin: 0 6px;
 }
 
-/* 双栏区：占据剩余高度，左右各半 */
+/* 双栏区：占据剩余高度，左右各半；四周留白 + 中缝间距，不再贴边 */
 .panes {
   display: flex;
   flex: 1;
   min-height: 0;
-  gap: 1px;
-  background: var(--fafa-border); /* 充当中缝分隔线 */
+  gap: 16px;
+  padding: 16px;
+  background: var(--fafa-bg);
 }
 .pane {
   flex: 1;
@@ -397,19 +467,42 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   background: var(--fafa-bg);
+  /* 加粗加深的边框，左右用不同颜色区分 */
+  border: 2px solid var(--fafa-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.pane.left {
+  border-color: #2563eb; /* 蓝 */
+}
+.pane.right {
+  border-color: #ea580c; /* 橙 */
 }
 .pane-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 8px;
+  padding: 6px 10px;
   border-bottom: 1px solid var(--fafa-border);
   flex-shrink: 0;
 }
+/* 顶栏底色用对应侧颜色的极淡 tint，进一步强化区分 */
+.pane.left .pane-bar {
+  background: color-mix(in srgb, #2563eb 8%, transparent);
+}
+.pane.right .pane-bar {
+  background: color-mix(in srgb, #ea580c 8%, transparent);
+}
 .pane-title {
-  font-size: 12px;
-  color: var(--fafa-text-soft);
+  font-size: 13px;
+  font-weight: 700;
   padding-left: 4px;
+}
+.pane.left .pane-title {
+  color: #2563eb;
+}
+.pane.right .pane-title {
+  color: #ea580c;
 }
 .pane-actions {
   display: flex;
@@ -432,12 +525,13 @@ onBeforeUnmount(() => {
   max-height: 38%;
   overflow: auto;
   border-top: 1px solid var(--fafa-border);
-  padding: 12px 16px;
+  /* 底部留出余量：差异较多出现滚动条时最后一行不会贴边被挡住 */
+  padding: 12px 16px 28px;
   background: var(--fafa-bg-soft);
 }
 .diff-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
   margin-bottom: 8px;
 }
@@ -448,6 +542,20 @@ onBeforeUnmount(() => {
 .diff-count {
   font-size: 12px;
   color: var(--fafa-text-soft);
+}
+.diff-spacer {
+  flex: 1;
+}
+/* 对比结果的 JSON 视图：给编辑器一个可用高度 */
+.diff-editor {
+  height: 280px;
+  border: 1px solid var(--fafa-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.diff-editor :deep(.vue-ts-json-editor),
+.diff-editor :deep(.jse-main) {
+  height: 100%;
 }
 .diff-hint {
   margin: 0;

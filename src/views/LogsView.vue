@@ -109,7 +109,8 @@ async function exportLogs() {
   flex: 1;
 }
 .log-list {
-  padding: 8px 12px;
+  /* 底部留出余量：出现滚动条时最后一条日志不会贴边被挡住 */
+  padding: 8px 12px 40px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12.5px;
 }

@@ -432,13 +432,17 @@ function remove() {
   height: 100%;
   overflow-y: auto;
 }
+/* 纯预览：底部留出余量，长笔记滚动到底时正文不会贴边被挡住 */
+.md-preview :deep(.md-editor-preview-wrapper) {
+  padding-bottom: 48px;
+}
 .plain-text {
   width: 100%;
   height: 100%;
   border: none;
   border-radius: 0;
   resize: none;
-  padding: 16px;
+  padding: 16px 16px 48px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: var(--editor-fs, 14px);
   line-height: 1.6;

@@ -107,7 +107,8 @@ function formatTime(ts: number): string {
 .stats-page {
   max-width: 760px;
   margin: 0 auto;
-  padding: 24px;
+  /* 底部留出余量：出现滚动条时最后内容不会贴边被挡住 */
+  padding: 24px 24px 48px;
 }
 h2 {
   margin: 0 0 16px;

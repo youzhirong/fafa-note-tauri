@@ -15,7 +15,9 @@
  *   传入的 value 已是 JSON.parse 的结果，超过 2^53 的整数在 JS 阶段已丢精度。
  *   若需 100% 保留原始大整数，应在解析阶段用 bigint 解析器，超出本工具范围。
  *
- * xlsx 体积较大，采用动态 import，仅首次导出时按需加载。
+ * 用 xlsx-js-style（SheetJS 社区版的样式增强分支，API 完全兼容）以便给
+ * 表头单元格写入背景色/加粗——社区版 xlsx 写出时不支持单元格样式。
+ * 体积较大，采用动态 import，仅首次导出时按需加载。
  */
 
 /** 任意值 → 单元格文本 */
@@ -25,6 +27,19 @@ function cellText(v: unknown): string {
   return String(v) // number / boolean / string → 字符串（不做数值化，避免科学计数法）
 }
 
+/** 表头单元格样式：深蓝底 + 白色加粗居中 + 细边框，用于和数据行区分 */
+const HEADER_STYLE = {
+  fill: { patternType: 'solid', fgColor: { rgb: 'FF4472C4' } },
+  font: { bold: true, color: { rgb: 'FFFFFFFF' }, sz: 12 },
+  alignment: { horizontal: 'center', vertical: 'center' },
+  border: {
+    top: { style: 'thin', color: { rgb: 'FFB0B0B0' } },
+    bottom: { style: 'thin', color: { rgb: 'FFB0B0B0' } },
+    left: { style: 'thin', color: { rgb: 'FFB0B0B0' } },
+    right: { style: 'thin', color: { rgb: 'FFB0B0B0' } },
+  },
+} as const
+
 /**
  * 生成 .xlsx 字节流。
  * @param value 已解析的 JSON 值
@@ -32,7 +47,7 @@ function cellText(v: unknown): string {
  * @throws 数据为空时抛错
  */
 export async function jsonToXlsxBytes(value: unknown): Promise<Uint8Array> {
-  const XLSX = await import('xlsx')
+  const XLSX = await import('xlsx-js-style')
 
   // 对象 → 包成数组（1 行）；数组 → 原样
   const rows: unknown[] = Array.isArray(value) ? value : [value]
@@ -66,7 +81,7 @@ export async function jsonToXlsxBytes(value: unknown): Promise<Uint8Array> {
 
   const ws = XLSX.utils.aoa_to_sheet(aoa)
 
-  // 双保险：把每个单元格显式标记为字符串 + 文本格式
+  // 双保险：把每个单元格显式标记为字符串 + 文本格式；首行（表头）额外加背景色样式
   const ref = ws['!ref']
   if (ref) {
     const range = XLSX.utils.decode_range(ref)
@@ -76,6 +91,8 @@ export async function jsonToXlsxBytes(value: unknown): Promise<Uint8Array> {
         if (cell) {
           cell.t = 's' // string 类型
           cell.z = '@' // 文本数字格式
+          // 第 0 行是表头：上色加粗以区分数据行
+          if (R === range.s.r) cell.s = HEADER_STYLE
         }
       }
     }

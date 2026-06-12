@@ -469,7 +469,8 @@ function clearAllData() {
 .settings-content {
   flex: 1;
   min-width: 0;
-  padding: 24px 28px;
+  /* 底部留出余量：出现滚动条时最后内容不会贴边被挡住 */
+  padding: 24px 28px 48px;
 }
 .settings-content section {
   max-width: 640px;
