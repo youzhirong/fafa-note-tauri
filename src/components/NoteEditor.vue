@@ -432,9 +432,17 @@ function remove() {
   height: 100%;
   overflow-y: auto;
 }
-/* 纯预览：底部留出余量，长笔记滚动到底时正文不会贴边被挡住 */
-.md-preview :deep(.md-editor-preview-wrapper) {
-  padding-bottom: 48px;
+/* 纯预览内边距：md-editor-v3 v5 的 previewOnly 把 .md-editor-preview 的 padding 重置成 0
+   （见 lib/style.css 的 .md-editor-previewOnly .md-editor-preview{padding:0}），导致正文贴边、
+   且滚动条（在外层 .md-preview 上）会压住右侧文字。这里补回左右内边距，并在底部留余量。 */
+.md-preview :deep(.md-editor-preview) {
+  padding: 16px 20px 48px;
+}
+/* 代码块头部（语言名/复制按钮）库内默认 position:sticky; z-index:10000，会盖住
+   PrimeVue 弹窗（如「新建文件夹」，modal 默认 z-index ~1100）。降到 2 即可——
+   只需在自身代码内容之上保持吸顶，不应高过任何对话框。 */
+.editor-body :deep(.md-editor-code-head) {
+  z-index: 2;
 }
 .plain-text {
   width: 100%;
