@@ -19,6 +19,7 @@
 | `src/services/BackupService.ts` | `exportBinaryFile()`：跨平台保存二进制文件（Excel 复用） |
 | `src/router/index.ts` | 路由 `/json` |
 | `src/config/navigation.ts` | 左侧菜单项 `JSON 工具`（`pi pi-code`） |
+| `src-tauri/Info.plist` | **声明 macOS 应用支持中文**，让原生「保存」对话框在中文系统显示中文（见第五节末） |
 
 依赖：`vue3-ts-jsoneditor`、`xlsx`（均已在 `package.json`）。
 
@@ -129,8 +130,23 @@ export const JSE_ZH: Record<string, string> = {
 **所有单元格强制文本**（`cell.t='s'` + `cell.z='@'`，且值都先 `String()`/`JSON.stringify()`），
 这样 Excel 不会把大数字/长串数字显示成科学计数法。
 
-保存走 `BackupService.exportBinaryFile(bytes, fileName, mime)`：Tauri 弹保存对话框写磁盘
+保存走 `BackupService.exportBinaryFile(bytes, fileName, mime, title)`：Tauri 弹保存对话框写磁盘
 （`fs.writeFile` 二进制，需 `fs:allow-write-file` 权限，已在 capabilities 配好）；Web 触发浏览器下载。
+JSON 工具导出时传入 `title='导出 Excel'` 作为对话框标题。
+
+### 保存对话框为什么会是英文 / 怎么改成中文
+
+那个「保存」面板是**操作系统的原生对话框**，不是我们的网页 UI。它上面「存储 / 取消」等按钮的语言
+**不由前端代码决定**，而是取「**系统语言 ∩ 应用声明支持的语言**」：
+
+- macOS：若应用包没声明支持中文，即使系统是中文，原生面板也会回退成**英文**。
+  已通过 `src-tauri/Info.plist` 的 `CFBundleLocalizations`（含 `zh-Hans`）声明支持中文，
+  中文系统下原生保存/打开面板即显示中文。**改后需重新 `npm run tauri:dev` / `tauri:build` 生效**，
+  且只对**中文系统**生效（英文系统仍显示英文，属正常行为）。此设置对**所有**原生对话框生效
+  （备份/还原、单篇导出等），不止 Excel。
+- 标题文案（如「导出 Excel」）是前端能直接控制的，通过 `exportBinaryFile(..., title)` 的 `title` 传入；
+  系统按钮仍由上面的本地化机制决定。
+- Windows/Linux：原生对话框按钮直接跟随系统语言，无需上述声明。
 
 ### ⚠️ 已知精度限制
 

@@ -93,6 +93,32 @@ src-tauri/                  Tauri（Rust）配置、插件、权限
 docs/                       架构说明与扩展指南
 ```
 
+## 💻 安装包下载与首次打开
+
+到 [GitHub Releases](https://github.com/youzhirong/fafa-note-tauri/releases) 下载对应平台的包：
+
+- **macOS（Apple Silicon：M1/M2/M3…）** → `*_aarch64.dmg`
+- **macOS（Intel）** → `*_x64.dmg`
+- **Windows** → `*-setup.exe`（推荐）或 `*.msi`
+- **Linux** → `*.deb` / `*.AppImage`
+
+### ⚠️ macOS 首次打开提示「已损坏，无法打开」
+
+本应用**暂未做 Apple 开发者签名与公证**，从网上下载的包会被系统打上隔离标记，
+首次打开会报「**"fafa-note" 已损坏，无法打开，您应该将它移到废纸篓**」。
+这**不是包坏了，也不是下错了架构**，去掉隔离标记即可正常使用：
+
+```bash
+# 已拖入「应用程序」后执行（会提示输入开机密码）
+sudo xattr -rd com.apple.quarantine /Applications/fafa-note.app
+```
+
+执行后再正常双击打开即可。
+
+> 注意：对「已损坏」这种提示，**右键 →「打开」通常无效**（那招只对「无法验证开发者」有效），
+> 必须用上面的 `xattr` 命令。彻底解决（下载即可直接双击打开）需要 Apple 开发者证书做签名+公证，
+> 见 [docs/打包构建.md](docs/打包构建.md) 第五节。
+
 ## 📖 文档
 
 - [docs/架构说明.md](docs/架构说明.md) —— 分层架构与设计取舍

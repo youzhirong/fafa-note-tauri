@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  声明应用支持的本地化语言。
+	  macOS 的「原生」系统对话框（保存 / 打开文件面板的 存储/取消 等按钮）语言，
+	  取「系统语言 ∩ 本数组」。若不声明中文，即使系统是中文，面板也会回退英文。
+	  列出 zh-Hans 后，中文系统下原生保存/打开对话框即显示中文。
+	  注意：此文件由 Tauri 打包器自动合并进最终 Info.plist，仅影响 macOS 原生对话框，
+	  不影响应用内（网页）界面。改后需重新 npm run tauri:dev / tauri:build 生效。
+	-->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>zh-Hans</string>
+	<key>CFBundleAllowMixedLocalizations</key>
+	<true/>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>zh-Hans</string>
+		<string>en</string>
+	</array>
+</dict>
+</plist>

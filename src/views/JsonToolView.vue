@@ -150,6 +150,7 @@ async function downloadXlsx(value: unknown, baseName: string) {
       bytes,
       `${baseName}-${stamp}.xlsx`,
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      '导出 Excel',
     )
     toast.add({ severity: 'success', summary: '已导出 Excel', detail: where, life: 3000 })
   } catch (e) {

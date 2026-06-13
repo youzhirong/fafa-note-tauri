@@ -173,18 +173,24 @@ export async function exportTextFile(content: string, fileName: string): Promise
  * @param data 文件二进制内容
  * @param fileName 默认文件名（含扩展名）
  * @param mime Web 下载用的 MIME 类型
+ * @param title 保存对话框标题（中文，Tauri 端显示；Web 端忽略）
  * @returns 实际写入路径（Web 端返回文件名）
+ *
+ * 注：对话框的「保存/取消」等系统按钮由 macOS 按「系统语言 ∩ 应用声明的语言」本地化，
+ *     已在 src-tauri/Info.plist 声明 zh-Hans，故中文系统下按钮显示中文；title 是我们能直接控制的标题文案。
  */
 export async function exportBinaryFile(
   data: Uint8Array,
   fileName: string,
   mime: string,
+  title = '保存文件',
 ): Promise<string> {
   if (isTauri()) {
     const { save } = await import('@tauri-apps/plugin-dialog')
     const { writeFile } = await import('@tauri-apps/plugin-fs')
     const ext = fileName.split('.').pop() || 'bin'
     const target = await save({
+      title,
       defaultPath: fileName,
       filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
     })
